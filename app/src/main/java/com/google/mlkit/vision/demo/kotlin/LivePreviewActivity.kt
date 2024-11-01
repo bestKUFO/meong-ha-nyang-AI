@@ -31,7 +31,6 @@ import android.widget.Toast
 import android.widget.ToggleButton
 import com.google.android.gms.common.annotation.KeepName
 import com.google.mlkit.common.model.LocalModel
-import com.google.mlkit.vision.barcode.ZoomSuggestionOptions.ZoomCallback
 import com.google.mlkit.vision.demo.CameraSource
 import com.google.mlkit.vision.demo.CameraSourcePreview
 import com.google.mlkit.vision.demo.GraphicOverlay
@@ -40,13 +39,6 @@ import com.google.mlkit.vision.demo.kotlin.objectdetector.ObjectDetectorProcesso
 import com.google.mlkit.vision.demo.preference.PreferenceUtils
 import com.google.mlkit.vision.demo.preference.SettingsActivity
 import com.google.mlkit.vision.demo.preference.SettingsActivity.LaunchSource
-import com.google.mlkit.vision.label.custom.CustomImageLabelerOptions
-import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
-import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
-import com.google.mlkit.vision.text.devanagari.DevanagariTextRecognizerOptions
-import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
-import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.io.IOException
 
 /** Live preview demo for ML Kit APIs. */
