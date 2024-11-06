@@ -11,8 +11,7 @@
     <ListPreference
         android:key="@string/pref_key_rear_camera_preview_size"
         android:persistent="true"
-        android:title="@string/pref_title_rear_camera_preview_size"/>
-
+        android:title="@string/pref_title_rear_camera_preview_size" />
     <ListPreference
         android:key="@string/pref_key_front_camera_preview_size"
         android:persistent="true"
