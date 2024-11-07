@@ -16,23 +16,13 @@
 
 package com.google.mlkit.vision.demo.kotlin
 
-import android.content.Intent
 import android.os.Build.VERSION_CODES
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import android.util.Log
-import android.view.View
-import android.widget.AdapterView
-import android.widget.AdapterView.OnItemSelectedListener
-import android.widget.ArrayAdapter
-import android.widget.CompoundButton
-import android.widget.ImageView
-import android.widget.Spinner
 import android.widget.Toast
-import android.widget.ToggleButton
 import androidx.annotation.RequiresApi
 import androidx.camera.core.Camera
-import androidx.camera.core.CameraInfoUnavailableException
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -51,14 +41,11 @@ import com.google.mlkit.vision.demo.R
 import com.google.mlkit.vision.demo.VisionImageProcessor
 import com.google.mlkit.vision.demo.kotlin.objectdetector.ObjectDetectorProcessor
 import com.google.mlkit.vision.demo.preference.PreferenceUtils
-import com.google.mlkit.vision.demo.preference.SettingsActivity
-import com.google.mlkit.vision.demo.preference.SettingsActivity.LaunchSource
 
 /** Live preview demo app for ML Kit APIs using CameraX. */
 @KeepName
 @RequiresApi(VERSION_CODES.LOLLIPOP)
-class CameraXLivePreviewActivity :
-  AppCompatActivity(), OnItemSelectedListener, CompoundButton.OnCheckedChangeListener {
+class CameraXLivePreviewActivity : AppCompatActivity() {
 
   private var previewView: PreviewView? = null
   private var graphicOverlay: GraphicOverlay? = null
@@ -68,16 +55,12 @@ class CameraXLivePreviewActivity :
   private var analysisUseCase: ImageAnalysis? = null
   private var imageProcessor: VisionImageProcessor? = null
   private var needUpdateGraphicOverlayImageSourceInfo = false
-  private var selectedModel = OBJECT_DETECTION
   private var lensFacing = CameraSelector.LENS_FACING_BACK
   private var cameraSelector: CameraSelector? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     Log.d(TAG, "onCreate")
-    if (savedInstanceState != null) {
-      selectedModel = savedInstanceState.getString(STATE_SELECTED_MODEL, OBJECT_DETECTION)
-    }
     cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
     setContentView(R.layout.activity_vision_camerax_live_preview)
     previewView = findViewById(R.id.preview_view)
@@ -88,21 +71,7 @@ class CameraXLivePreviewActivity :
     if (graphicOverlay == null) {
       Log.d(TAG, "graphicOverlay is null")
     }
-    val spinner = findViewById<Spinner>(R.id.spinner)
-    val options: MutableList<String> = ArrayList()
-    options.add(OBJECT_DETECTION)
-    options.add(OBJECT_DETECTION_CUSTOM)
-    options.add(CUSTOM_AUTOML_OBJECT_DETECTION)
 
-    // Creating adapter for spinner
-    val dataAdapter = ArrayAdapter(this, R.layout.spinner_style, options)
-    // Drop down layout style - list view with radio button
-    dataAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-    // attaching data adapter to spinner
-    spinner.adapter = dataAdapter
-    spinner.onItemSelectedListener = this
-    val facingSwitch = findViewById<ToggleButton>(R.id.facing_switch)
-    facingSwitch.setOnCheckedChangeListener(this)
     ViewModelProvider(this, ViewModelProvider.AndroidViewModelFactory.getInstance(application))
       .get(CameraXViewModel::class.java)
       .processCameraProvider
@@ -114,61 +83,8 @@ class CameraXLivePreviewActivity :
         },
       )
 
-    val settingsButton = findViewById<ImageView>(R.id.settings_button)
-    settingsButton.setOnClickListener {
-      val intent = Intent(applicationContext, SettingsActivity::class.java)
-      intent.putExtra(SettingsActivity.EXTRA_LAUNCH_SOURCE, LaunchSource.CAMERAX_LIVE_PREVIEW)
-      startActivity(intent)
-    }
   }
 
-  override fun onSaveInstanceState(bundle: Bundle) {
-    super.onSaveInstanceState(bundle)
-    bundle.putString(STATE_SELECTED_MODEL, selectedModel)
-  }
-
-  @Synchronized
-  override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
-    // An item was selected. You can retrieve the selected item using
-    // parent.getItemAtPosition(pos)
-    selectedModel = parent?.getItemAtPosition(pos).toString()
-    Log.d(TAG, "Selected model: $selectedModel")
-    bindAnalysisUseCase()
-  }
-
-  override fun onNothingSelected(parent: AdapterView<*>?) {
-    // Do nothing.
-  }
-
-  override fun onCheckedChanged(buttonView: CompoundButton, isChecked: Boolean) {
-    if (cameraProvider == null) {
-      return
-    }
-    val newLensFacing =
-      if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
-        CameraSelector.LENS_FACING_BACK
-      } else {
-        CameraSelector.LENS_FACING_FRONT
-      }
-    val newCameraSelector = CameraSelector.Builder().requireLensFacing(newLensFacing).build()
-    try {
-      if (cameraProvider!!.hasCamera(newCameraSelector)) {
-        Log.d(TAG, "Set facing to " + newLensFacing)
-        lensFacing = newLensFacing
-        cameraSelector = newCameraSelector
-        bindAllCameraUseCases()
-        return
-      }
-    } catch (e: CameraInfoUnavailableException) {
-      // Falls through
-    }
-    Toast.makeText(
-        applicationContext,
-        "This device does not have lens with facing: $newLensFacing",
-        Toast.LENGTH_SHORT,
-      )
-      .show()
-  }
 
   public override fun onResume() {
     super.onResume()
@@ -211,7 +127,9 @@ class CameraXLivePreviewActivity :
     if (targetResolution != null) {
       builder.setTargetResolution(targetResolution)
     }
-    previewUseCase = builder.build()
+    previewUseCase = builder
+      .setTargetResolution(android.util.Size(1280, 720)) // 720p resolution
+      .build()
     previewUseCase!!.setSurfaceProvider(previewView!!.getSurfaceProvider())
     camera = cameraProvider!!.bindToLifecycle(this, cameraSelector!!, previewUseCase)
   }
@@ -228,36 +146,14 @@ class CameraXLivePreviewActivity :
     }
     imageProcessor =
       try {
-        when (selectedModel) {
-          OBJECT_DETECTION -> {
-            Log.i(TAG, "Using Object Detector Processor")
-            val objectDetectorOptions = PreferenceUtils.getObjectDetectorOptionsForLivePreview(this)
-            ObjectDetectorProcessor(this, objectDetectorOptions)
-          }
-          OBJECT_DETECTION_CUSTOM -> {
             Log.i(TAG, "Using Custom Object Detector (with object labeler) Processor")
             val localModel =
               LocalModel.Builder().setAssetFilePath("custom_models/object_labeler.tflite").build()
             val customObjectDetectorOptions =
               PreferenceUtils.getCustomObjectDetectorOptionsForLivePreview(this, localModel)
             ObjectDetectorProcessor(this, customObjectDetectorOptions)
-          }
-          CUSTOM_AUTOML_OBJECT_DETECTION -> {
-            Log.i(TAG, "Using Custom AutoML Object Detector Processor")
-            val customAutoMLODTLocalModel =
-              LocalModel.Builder().setAssetManifestFilePath("automl/manifest.json").build()
-            val customAutoMLODTOptions =
-              PreferenceUtils.getCustomObjectDetectorOptionsForLivePreview(
-                this,
-                customAutoMLODTLocalModel,
-              )
-            ObjectDetectorProcessor(this, customAutoMLODTOptions)
-          }
-
-          else -> throw IllegalStateException("Invalid model name")
-        }
       } catch (e: Exception) {
-        Log.e(TAG, "Can not create image processor: $selectedModel", e)
+        Log.e(TAG, "Can not create image processor.", e)
         Toast.makeText(
             applicationContext,
             "Can not create image processor: " + e.localizedMessage,
@@ -272,7 +168,9 @@ class CameraXLivePreviewActivity :
     if (targetResolution != null) {
       builder.setTargetResolution(targetResolution)
     }
-    analysisUseCase = builder.build()
+    analysisUseCase = builder
+      .setTargetResolution(android.util.Size(1280, 720)) // 720p resolution
+      .build()
 
     needUpdateGraphicOverlayImageSourceInfo = true
 
@@ -304,10 +202,5 @@ class CameraXLivePreviewActivity :
 
   companion object {
     private const val TAG = "CameraXLivePreview"
-    private const val OBJECT_DETECTION = "Object Detection"
-    private const val OBJECT_DETECTION_CUSTOM = "Custom Object Detection"
-    private const val CUSTOM_AUTOML_OBJECT_DETECTION = "Custom AutoML Object Detection (Flower)"
-
-    private const val STATE_SELECTED_MODEL = "selected_model"
   }
 }
