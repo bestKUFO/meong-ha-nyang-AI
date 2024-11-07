@@ -74,12 +74,6 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
     }
     val facingSwitch = findViewById<ToggleButton>(R.id.facing_switch)
     facingSwitch.setOnCheckedChangeListener(this)
-    val settingsButton = findViewById<ImageView>(R.id.settings_button)
-    settingsButton.setOnClickListener {
-      val intent = Intent(applicationContext, SettingsActivity::class.java)
-      intent.putExtra(SettingsActivity.EXTRA_LAUNCH_SOURCE, LaunchSource.CAMERAXSOURCE_DEMO)
-      startActivity(intent)
-    }
   }
 
   override fun onCheckedChanged(buttonView: CompoundButton, isChecked: Boolean) {
@@ -131,20 +125,16 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
         localModel
       )
     val objectDetector: ObjectDetector = ObjectDetection.getClient(customObjectDetectorOptions!!)
-    var detectionTaskCallback: DetectionTaskCallback<List<DetectedObject>> =
+    val detectionTaskCallback: DetectionTaskCallback<List<DetectedObject>> =
       DetectionTaskCallback<List<DetectedObject>> { detectionTask ->
         detectionTask
           .addOnSuccessListener { results -> onDetectionTaskSuccess(results) }
           .addOnFailureListener { e -> onDetectionTaskFailure(e) }
       }
     val builder: CameraSourceConfig.Builder =
-      CameraSourceConfig.Builder(getApplicationContext(), objectDetector!!, detectionTaskCallback)
+      CameraSourceConfig.Builder(getApplicationContext(), objectDetector, detectionTaskCallback)
         .setFacing(lensFacing)
-    targetResolution =
-      PreferenceUtils.getCameraXTargetResolution(getApplicationContext(), lensFacing)
-    if (targetResolution != null) {
-      builder.setRequestedPreviewSize(targetResolution!!.width, targetResolution!!.height)
-    }
+        .setRequestedPreviewSize(1280, 720) // 해상도를 1280x720으로 고정
     cameraXSource = CameraXSource(builder.build(), previewView!!)
     needUpdateGraphicOverlayImageSourceInfo = true
     cameraXSource!!.start()
