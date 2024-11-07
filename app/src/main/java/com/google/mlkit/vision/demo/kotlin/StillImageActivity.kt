@@ -67,61 +67,6 @@ class StillImageActivity : AppCompatActivity() {
   private var imageMaxHeight = 0
   private var imageProcessor: VisionImageProcessor? = null
 
-  override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    setContentView(R.layout.activity_still_image)
-    findViewById<View>(R.id.select_image_button).setOnClickListener { view: View ->
-      // Menu for selecting either: a) take new photo b) select from existing
-      val popup = PopupMenu(this@StillImageActivity, view)
-      popup.setOnMenuItemClickListener { menuItem: MenuItem ->
-        val itemId = menuItem.itemId
-        if (itemId == R.id.select_images_from_local) {
-          startChooseImageIntentForResult()
-          return@setOnMenuItemClickListener true
-        } else if (itemId == R.id.take_photo_using_camera) {
-          startCameraIntentForResult()
-          return@setOnMenuItemClickListener true
-        }
-        false
-      }
-      val inflater = popup.menuInflater
-      inflater.inflate(R.menu.camera_button_menu, popup.menu)
-      popup.show()
-    }
-    preview = findViewById(R.id.preview)
-    graphicOverlay = findViewById(R.id.graphic_overlay)
-
-    populateFeatureSelector()
-    populateSizeSelector()
-    isLandScape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    if (savedInstanceState != null) {
-      imageUri = savedInstanceState.getParcelable(KEY_IMAGE_URI)
-      imageMaxWidth = savedInstanceState.getInt(KEY_IMAGE_MAX_WIDTH)
-      imageMaxHeight = savedInstanceState.getInt(KEY_IMAGE_MAX_HEIGHT)
-      selectedSize = savedInstanceState.getString(KEY_SELECTED_SIZE)
-    }
-
-    val rootView = findViewById<View>(R.id.root)
-    rootView.viewTreeObserver.addOnGlobalLayoutListener(
-      object : ViewTreeObserver.OnGlobalLayoutListener {
-        override fun onGlobalLayout() {
-          rootView.viewTreeObserver.removeOnGlobalLayoutListener(this)
-          imageMaxWidth = rootView.width
-          imageMaxHeight = rootView.height - findViewById<View>(R.id.control).height
-          if (SIZE_SCREEN == selectedSize) {
-            tryReloadAndDetectInImage()
-          }
-        }
-      }
-    )
-
-    val settingsButton = findViewById<ImageView>(R.id.settings_button)
-    settingsButton.setOnClickListener {
-      val intent = Intent(applicationContext, SettingsActivity::class.java)
-      intent.putExtra(SettingsActivity.EXTRA_LAUNCH_SOURCE, LaunchSource.STILL_IMAGE)
-      startActivity(intent)
-    }
-  }
 
   public override fun onResume() {
     super.onResume()
