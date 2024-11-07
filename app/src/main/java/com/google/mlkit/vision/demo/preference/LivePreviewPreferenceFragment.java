@@ -36,7 +36,6 @@ public class LivePreviewPreferenceFragment extends PreferenceFragment {
   public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
 
-    addPreferencesFromResource(R.xml.preference_live_preview_quickstart);
     setUpCameraPreferences();
   }
 
