@@ -54,25 +54,7 @@
         </activity>
 
         <activity
-            android:name=".kotlin.LivePreviewActivity"
-            android:exported="false"
-            android:theme="@style/AppTheme">
-        </activity>
-
-        <activity
-            android:name=".kotlin.CameraXLivePreviewActivity"
-            android:exported="false"
-            android:theme="@style/AppTheme">
-        </activity>
-
-        <activity
             android:name=".kotlin.CameraXSourceDemoActivity"
-            android:exported="false"
-            android:theme="@style/AppTheme">
-        </activity>
-
-        <activity
-            android:name=".kotlin.StillImageActivity"
             android:exported="false"
             android:theme="@style/AppTheme">
         </activity>
