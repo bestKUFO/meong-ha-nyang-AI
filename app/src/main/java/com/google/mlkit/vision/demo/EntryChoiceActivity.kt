@@ -37,7 +37,7 @@ class EntryChoiceActivity : AppCompatActivity(), ActivityCompat.OnRequestPermiss
       val intent =
         Intent(
           this@EntryChoiceActivity,
-          com.google.mlkit.vision.demo.kotlin.ChooserActivity::class.java
+          com.google.mlkit.vision.demo.kotlin.CameraXSourceDemoActivity::class.java
         )
       startActivity(intent)
     }

@@ -68,10 +68,6 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="com.google.mlkit.vision.demo.kotlin.ChooserActivity"
-            android:exported="false" >
-        </activity>
-        <activity
             android:name="com.google.mlkit.vision.demo.kotlin.CameraXSourceDemoActivity"
             android:exported="false"
             android:theme="@style/AppTheme" >
