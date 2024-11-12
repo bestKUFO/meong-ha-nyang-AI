@@ -39,19 +39,13 @@
             android:value="barcode,face,ocr,ocr_chinese,ocr_devanagari,ocr_japanese,ocr_korean,ica,custom_ica,subject_segment"/>
 
         <activity
-            android:name=".EntryChoiceActivity"
+            android:name=".kotlin.CameraXSourceDemoActivity"
             android:exported="true"
             android:theme="@style/AppTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-        </activity>
-
-        <activity
-            android:name=".kotlin.CameraXSourceDemoActivity"
-            android:exported="false"
-            android:theme="@style/AppTheme">
         </activity>
 
     </application>
