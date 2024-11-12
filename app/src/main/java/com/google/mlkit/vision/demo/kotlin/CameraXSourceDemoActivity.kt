@@ -16,6 +16,9 @@
 
 package com.google.mlkit.vision.demo.kotlin
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build.VERSION_CODES
 import android.os.Bundle
@@ -27,6 +30,8 @@ import android.widget.Toast
 import android.widget.ToggleButton
 import androidx.annotation.RequiresApi
 import androidx.camera.view.PreviewView
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.google.android.gms.common.annotation.KeepName
 import com.google.mlkit.common.model.LocalModel
 import com.google.mlkit.vision.camera.CameraSourceConfig
@@ -70,13 +75,18 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
     }
     val facingSwitch = findViewById<ToggleButton>(R.id.facing_switch)
     facingSwitch.setOnCheckedChangeListener(this)
+
+    // 카메라 권한 체크 및 요청
+    if (!allRuntimePermissionsGranted()) {
+      getRuntimePermissions()
+    }
   }
 
   override fun onCheckedChanged(buttonView: CompoundButton, isChecked: Boolean) {
-    if (lensFacing == CameraSourceConfig.CAMERA_FACING_FRONT) {
-      lensFacing = CameraSourceConfig.CAMERA_FACING_BACK
+    lensFacing = if (lensFacing == CameraSourceConfig.CAMERA_FACING_FRONT) {
+      CameraSourceConfig.CAMERA_FACING_BACK
     } else {
-      lensFacing = CameraSourceConfig.CAMERA_FACING_FRONT
+      CameraSourceConfig.CAMERA_FACING_FRONT
     }
     createThenStartCameraXSource()
   }
@@ -186,9 +196,43 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
       (getApplicationContext().getResources().getConfiguration().orientation !==
         Configuration.ORIENTATION_LANDSCAPE)
 
+  // 여기부터 권한 관리
+  private fun allRuntimePermissionsGranted(): Boolean {
+    for (permission in REQUIRED_RUNTIME_PERMISSIONS) {
+      if (!isPermissionGranted(this, permission)) {
+        return false
+      }
+    }
+    return true
+  }
+
+  private fun getRuntimePermissions() {
+    val permissionsToRequest = REQUIRED_RUNTIME_PERMISSIONS.filter {
+      !isPermissionGranted(this, it)
+    }
+    if (permissionsToRequest.isNotEmpty()) {
+      ActivityCompat.requestPermissions(
+        this,
+        permissionsToRequest.toTypedArray(),
+        PERMISSION_REQUESTS
+      )
+    }
+  }
+
+  private fun isPermissionGranted(context: Context, permission: String): Boolean {
+    return ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+  }
+
   companion object {
     private const val TAG = "CameraXSourcePreview"
-    private val localModel: LocalModel =
-      LocalModel.Builder().setAssetFilePath("custom_models/object_labeler.tflite").build()
+    private const val PERMISSION_REQUESTS = 1
+    private val REQUIRED_RUNTIME_PERMISSIONS = arrayOf(
+      Manifest.permission.CAMERA,
+      Manifest.permission.WRITE_EXTERNAL_STORAGE,
+      Manifest.permission.READ_EXTERNAL_STORAGE
+    )
+    private val localModel = LocalModel.Builder()
+      .setAssetFilePath("custom_models/object_labeler.tflite")
+      .build()
   }
 }
