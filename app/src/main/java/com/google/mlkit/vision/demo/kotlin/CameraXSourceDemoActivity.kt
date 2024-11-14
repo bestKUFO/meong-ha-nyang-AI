@@ -170,16 +170,35 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
         Log.d(TAG, "previewsize is null")
       }
     }
-    // 객체가 탐지시 출력 로그
+    // Log messages for object detection
     Log.i(TAG, "local msg : detected my bbobby")
 
-    // 서버에 로그 전송
+    // Send log to server
     sendLogToServer("detected my bbobby")
 
-    Log.v(TAG, "Number of object been detected: " + results.size)
-    for (`object` in results) {
-      graphicOverlay!!.add(ObjectGraphic(graphicOverlay!!, `object`))
+    // Process and log all detected objects and their labels
+    Log.v(TAG, "Number of objects detected: " + results.size)
+    for (detectedObject in results) {
+      // Logging detected object's labels
+      for (label in detectedObject.labels) {
+        Log.d(TAG, "Detected label: " + label.text + " (confidence: " + label.confidence + ")")
+      }
+
+      // Check if the detected object matches "dog" or "cat"
+      var isDesiredObject = false
+      for (label in detectedObject.labels) {
+        if (label.text == "dog" || label.text == "cat") {
+          isDesiredObject = true
+          break
+        }
+      }
+
+      // Add object to overlay only if it matches desired classes
+      if (isDesiredObject) {
+        graphicOverlay!!.add(ObjectGraphic(graphicOverlay!!, detectedObject))
+      }
     }
+
     graphicOverlay!!.add(InferenceInfoGraphic(graphicOverlay!!))
     graphicOverlay!!.postInvalidate()
   }
