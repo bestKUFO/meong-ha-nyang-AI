@@ -189,6 +189,9 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
       for (label in detectedObject.labels) {
         if (label.text == "dog" || label.text == "cat") {
           isDesiredObject = true
+          // Send log if he detected object matches "dog" or "cat"
+          Log.i(TAG, "Detected a desired object: ${label.text}")
+          sendLogToServer("Detected a ${label.text}")
           break
         }
       }
