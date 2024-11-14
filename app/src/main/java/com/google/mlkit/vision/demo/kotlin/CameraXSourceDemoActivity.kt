@@ -46,6 +46,9 @@ import com.google.mlkit.vision.objects.DetectedObject
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.ObjectDetector
 import com.google.mlkit.vision.objects.custom.CustomObjectDetectorOptions
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.Objects
 import kotlin.collections.List
 
@@ -167,12 +170,36 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
         Log.d(TAG, "previewsize is null")
       }
     }
+    // 객체가 탐지시 출력 로그
+    Log.i(TAG, "local msg : detected my bbobby")
+
+    // 서버에 로그 전송
+    sendLogToServer("detected my bbobby")
+
     Log.v(TAG, "Number of object been detected: " + results.size)
     for (`object` in results) {
       graphicOverlay!!.add(ObjectGraphic(graphicOverlay!!, `object`))
     }
     graphicOverlay!!.add(InferenceInfoGraphic(graphicOverlay!!))
     graphicOverlay!!.postInvalidate()
+  }
+
+  // 서버로 로그 전송하는 메서드
+  private fun sendLogToServer(message: String) {
+    // Coroutine 사용하여 비동기 작업
+    CoroutineScope(Dispatchers.IO).launch {
+      try {
+        // 서버에 로그 전송
+        val response = RetrofitClient.logApiService.sendEventLog(EventData(message))
+        if (response.isSuccessful) {
+          Log.d(TAG, "Event data successfully sent to server.")
+        } else {
+          Log.e(TAG, "Failed to send event data: ${response.code()}")
+        }
+      } catch (e: Exception) {
+        Log.e(TAG, "Error sending event data to server", e)
+      }
+    }
   }
 
   private fun onDetectionTaskFailure(e: Exception) {
