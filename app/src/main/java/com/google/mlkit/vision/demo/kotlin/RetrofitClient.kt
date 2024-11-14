@@ -7,9 +7,10 @@ import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
+import javax.net.ssl.HostnameVerifier
 
 object RetrofitClient {
-    private const val BASE_URL = "https://127.0.0.1:8443/" // https 프로토콜로 변경
+    private const val BASE_URL = "https://10.0.2.2:8443/" // https 프로토콜로 변경
 
     // SSL 검증을 우회하는 클라이언트 설정
     private val client = OkHttpClient.Builder().apply {
@@ -25,11 +26,11 @@ object RetrofitClient {
         sslContext.init(null, arrayOf<TrustManager>(trustAllCertificates), java.security.SecureRandom())
 
         // SSLContext를 OkHttpClient에 적용
-        val sslSocketFactory = sslContext.socketFactory
-        val hostnameVerifier = OkHttpClient.Builder().build().hostnameVerifier
+        this.sslSocketFactory(sslContext.socketFactory, trustAllCertificates)
 
-        this.sslSocketFactory(sslSocketFactory, trustAllCertificates)
-        this.hostnameVerifier(hostnameVerifier)
+        // 모든 호스트 이름을 허용하는 HostnameVerifier 설정
+        this.hostnameVerifier(HostnameVerifier { _, _ -> true })
+
 
         // 로깅 설정
         val loggingInterceptor = HttpLoggingInterceptor()

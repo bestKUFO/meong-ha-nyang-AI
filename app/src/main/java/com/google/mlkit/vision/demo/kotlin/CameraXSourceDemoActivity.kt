@@ -171,7 +171,7 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
       }
     }
     // 객체가 탐지시 출력 로그
-    Log.i(TAG, "detected my bbobby")
+    Log.i(TAG, "local msg : detected my bbobby")
 
     // 서버에 로그 전송
     sendLogToServer("detected my bbobby")
@@ -190,15 +190,14 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
     CoroutineScope(Dispatchers.IO).launch {
       try {
         // 서버에 로그 전송
-        val eventData = EventData(message)
-        val response = RetrofitClient.logApiService.sendEventLog(eventData)
+        val response = RetrofitClient.logApiService.sendEventLog(EventData(message))
         if (response.isSuccessful) {
-          Log.d(TAG, "Log successfully sent to server.")
+          Log.d(TAG, "Event data successfully sent to server.")
         } else {
-          Log.e(TAG, "Failed to send log: ${response.code()}")
+          Log.e(TAG, "Failed to send event data: ${response.code()}")
         }
       } catch (e: Exception) {
-        Log.e(TAG, "Error sending log to server", e)
+        Log.e(TAG, "Error sending event data to server", e)
       }
     }
   }
