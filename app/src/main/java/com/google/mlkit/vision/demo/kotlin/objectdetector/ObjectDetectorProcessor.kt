@@ -53,7 +53,16 @@ class ObjectDetectorProcessor(context: Context, options: ObjectDetectorOptionsBa
 
   override fun onSuccess(results: List<DetectedObject>, graphicOverlay: GraphicOverlay) {
     for (result in results) {
-      graphicOverlay.add(ObjectGraphic(graphicOverlay, result))
+      var isDesiredObject = false
+      for (label in result.labels) {
+        if (label.text == "dog" || label.text == "cat") {
+          isDesiredObject = true
+          break
+        }
+      }
+      if (isDesiredObject) {
+        graphicOverlay.add(ObjectGraphic(graphicOverlay, result))
+      }
     }
   }
 
