@@ -177,11 +177,18 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
     sendLogToServer("detected my bbobby")
 
     // Process and log all detected objects and their labels
-    Log.v(TAG, "Number of objects detected: " + results.size)
-    for (detectedObject in results) {
-      // Logging detected object's labels
-      for (label in detectedObject.labels) {
-        Log.d(TAG, "Detected label: " + label.text + " (confidence: " + label.confidence + ")")
+
+    // Depending on the index, you can adjust the log level to Debug for detailed information (Log.d) or Info for important events (Log.i)
+    Log.v(TAG, "Number of objects detected: ${results.size}")
+    for ((index, detectedObject) in results.withIndex()) {
+      Log.d(TAG, "Object $index:")
+
+      if (detectedObject.labels.isEmpty()) {
+        Log.d(TAG, "No labels found for this object")
+      } else {
+        for (label in detectedObject.labels) {
+          Log.d(TAG, "- Label: ${label.text} (confidence: ${label.confidence * 100}%)")
+        }
       }
 
       // Check if the detected object matches "dog" or "cat"
