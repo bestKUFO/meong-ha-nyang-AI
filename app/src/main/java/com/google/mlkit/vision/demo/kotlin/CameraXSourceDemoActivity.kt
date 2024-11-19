@@ -49,7 +49,10 @@ import com.google.mlkit.vision.objects.custom.CustomObjectDetectorOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.Objects
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.collections.List
 
 /** Live preview demo app for ML Kit APIs using CameraXSource API. */
@@ -63,6 +66,9 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
   private var cameraXSource: CameraXSource? = null
   private var customObjectDetectorOptions: CustomObjectDetectorOptions? = null
   private var targetResolution: Size? = null
+  private val mutex = Mutex() // 동기화용 Mutex
+  private val lastSentTime = AtomicLong(0) // 마지막 전송 시간을 기록
+  private val sendIntervalMillis = 5000L // 5초 간격
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -170,13 +176,15 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
         Log.d(TAG, "previewsize is null")
       }
     }
-    // 객체가 탐지시 출력 로그
-    Log.i(TAG, "local msg : detected my bbobby")
-
-    // 서버에 로그 전송
-    sendLogToServer("detected my bbobby")
 
     Log.v(TAG, "Number of object been detected: " + results.size)
+
+    if (results.isNotEmpty()) {
+      // 객체가 탐지시 출력 로그
+      Log.i(TAG, "local msg : detected my bbobby")
+      // 서버에 로그 전송
+      sendEventToServerWithThrottling("detected my bbobby")
+    }
     for (`object` in results) {
       graphicOverlay!!.add(ObjectGraphic(graphicOverlay!!, `object`))
     }
@@ -184,8 +192,24 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
     graphicOverlay!!.postInvalidate()
   }
 
+  private fun sendEventToServerWithThrottling(message: String) {
+    CoroutineScope(Dispatchers.IO).launch {
+      mutex.withLock {
+        val currentTime = System.currentTimeMillis()
+        val elapsed = currentTime - lastSentTime.get()
+        if (elapsed >= sendIntervalMillis) {
+          // 5초가 지난 경우에만 전송
+          sendEventToServer(message)
+          lastSentTime.set(currentTime)
+        } else {
+          Log.d(TAG, "Skipping log send; last sent ${elapsed}ms ago")
+        }
+      }
+    }
+  }
+
   // 서버로 로그 전송하는 메서드
-  private fun sendLogToServer(message: String) {
+  private fun sendEventToServer(message: String) {
     // Coroutine 사용하여 비동기 작업
     CoroutineScope(Dispatchers.IO).launch {
       try {
