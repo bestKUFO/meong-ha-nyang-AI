@@ -102,6 +102,9 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
 
   public override fun onResume() {
     super.onResume()
+    if (isFinishing || isDestroyed) {
+      return
+    }
     if (cameraXSource != null &&
         PreferenceUtils.getCustomObjectDetectorOptionsForLivePreview(this, localModel)
           .equals(customObjectDetectorOptions) &&
@@ -142,7 +145,7 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
 
     if (customObjectDetectorOptions == null) {
       Log.e(TAG, "CustomObjectDetectorOptions is null. Cannot proceed.")
-      return // 옵션이 없으면 카메라를 시작하지 않음
+      return
     }
 
     // 카메라 타겟 해상도 설정
@@ -170,6 +173,13 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
         .setRequestedPreviewSize(targetResolution!!.width, targetResolution!!.height)
 
     cameraXSource = CameraXSource(builder.build(), previewView!!)
+
+    // 카메라 시작
+    if (isFinishing || isDestroyed) {
+      Log.d(TAG, "액티비티 finishing or destroyed, 카메라 시작안됨")
+      return
+    }
+
     needUpdateGraphicOverlayImageSourceInfo = true
     cameraXSource!!.start()
   }
@@ -204,8 +214,7 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
 //      Log.i(TAG, "local msg : detected my bbobby")
       Log.i(TAG, "trackingID:"+ detectedObject.trackingId)
       Log.i(TAG, "BoundingBox" + detectedObject.boundingBox)
-      // detectedObject.BoundingBox
-      // detectedObject.Labels
+      Log.i(TAG, "Labels" + detectedObject.labels)
       // 서버에 이벤트 데이터 전송
       sendEventToServerWithThrottling("detected my bbobby")
     }
@@ -218,16 +227,14 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
 
   private fun sendEventToServerWithThrottling(message: String) {
     CoroutineScope(Dispatchers.IO).launch {
-      mutex.withLock {
-        val currentTime = System.currentTimeMillis()
-        val elapsed = currentTime - lastSentTime.get()
-        if (elapsed >= sendIntervalMillis) {
-          // 5초가 지난 경우에만 전송
-          sendEventToServer(message)
-          lastSentTime.set(currentTime)
-        } else {
-          Log.d(TAG, "Skipping event send; last sent ${elapsed}ms ago")
-        }
+      val currentTime = System.currentTimeMillis()
+      val elapsed = currentTime - lastSentTime.get()
+      if (elapsed >= sendIntervalMillis) {
+        // 5초가 지난 경우에만 전송
+        sendEventToServer(message)
+        lastSentTime.set(currentTime)
+      } else {
+        Log.d(TAG, "Skipping event send; last sent ${elapsed}ms ago")
       }
     }
   }
@@ -251,8 +258,8 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
   }
 
   private fun onDetectionTaskFailure(e: Exception) {
-    graphicOverlay!!.clear()
-    graphicOverlay!!.postInvalidate()
+    graphicOverlay?.clear()
+    graphicOverlay?.postInvalidate()
     val error = "Failed to process. Error: " + e.localizedMessage
     Toast.makeText(
         graphicOverlay!!.getContext(),
