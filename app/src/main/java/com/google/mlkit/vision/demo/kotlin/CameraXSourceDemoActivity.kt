@@ -139,6 +139,23 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
         getApplicationContext(),
         localModel
       )
+
+    if (customObjectDetectorOptions == null) {
+      Log.e(TAG, "CustomObjectDetectorOptions is null. Cannot proceed.")
+      return // 옵션이 없으면 카메라를 시작하지 않음
+    }
+
+    // 카메라 타겟 해상도 설정
+    targetResolution = PreferenceUtils.getCameraXTargetResolution(applicationContext, lensFacing)
+
+    if (targetResolution == null) {
+      Log.e(TAG, "Target resolution is null. Setting default resolution.")
+      // 기본 해상도 설정
+      targetResolution = Size(1280, 720)
+    }
+
+
+    // 객체 탐지 클라이언트 설정
     val objectDetector: ObjectDetector = ObjectDetection.getClient(customObjectDetectorOptions!!)
     val detectionTaskCallback: DetectionTaskCallback<List<DetectedObject>> =
       DetectionTaskCallback<List<DetectedObject>> { detectionTask ->
@@ -146,10 +163,12 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
           .addOnSuccessListener { results -> onDetectionTaskSuccess(results) }
           .addOnFailureListener { e -> onDetectionTaskFailure(e) }
       }
+    // 카메라 설정 및 CameraXSource 시작
     val builder: CameraSourceConfig.Builder =
-      CameraSourceConfig.Builder(getApplicationContext(), objectDetector, detectionTaskCallback)
+      CameraSourceConfig.Builder(applicationContext, objectDetector, detectionTaskCallback)
         .setFacing(lensFacing)
-        .setRequestedPreviewSize(1280, 720) // 해상도를 1280x720으로 고정
+        .setRequestedPreviewSize(targetResolution!!.width, targetResolution!!.height)
+
     cameraXSource = CameraXSource(builder.build(), previewView!!)
     needUpdateGraphicOverlayImageSourceInfo = true
     cameraXSource!!.start()
