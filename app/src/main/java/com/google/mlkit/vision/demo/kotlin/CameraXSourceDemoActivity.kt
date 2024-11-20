@@ -49,8 +49,6 @@ import com.google.mlkit.vision.objects.custom.CustomObjectDetectorOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.util.Objects
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.collections.List
@@ -66,7 +64,6 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
   private var cameraXSource: CameraXSource? = null
   private var customObjectDetectorOptions: CustomObjectDetectorOptions? = null
   private var targetResolution: Size? = null
-  private val mutex = Mutex() // 동기화용 Mutex
   private val lastSentTime = AtomicLong(0) // 마지막 전송 시간 기록
   private val sendIntervalMillis = 5000L // 5초 간격
 
