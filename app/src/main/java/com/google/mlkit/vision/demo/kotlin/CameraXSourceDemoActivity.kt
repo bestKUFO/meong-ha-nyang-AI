@@ -67,7 +67,7 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
   private var customObjectDetectorOptions: CustomObjectDetectorOptions? = null
   private var targetResolution: Size? = null
   private val mutex = Mutex() // 동기화용 Mutex
-  private val lastSentTime = AtomicLong(0) // 마지막 전송 시간을 기록
+  private val lastSentTime = AtomicLong(0) // 마지막 전송 시간 기록
   private val sendIntervalMillis = 5000L // 5초 간격
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -177,12 +177,17 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
       }
     }
 
-    Log.v(TAG, "Number of object been detected: " + results.size)
+//    Log.v(TAG, "Number of object been detected: " + results.size)
 
     if (results.isNotEmpty()) {
-      // 객체가 탐지시 출력 로그
-      Log.i(TAG, "local msg : detected my bbobby")
-      // 서버에 로그 전송
+      // 객체 탐지시 출력
+      val detectedObject = results[0]
+//      Log.i(TAG, "local msg : detected my bbobby")
+      Log.i(TAG, "trackingID:"+ detectedObject.trackingId)
+      Log.i(TAG, "BoundingBox" + detectedObject.boundingBox)
+      // detectedObject.BoundingBox
+      // detectedObject.Labels
+      // 서버에 이벤트 데이터 전송
       sendEventToServerWithThrottling("detected my bbobby")
     }
     for (`object` in results) {
@@ -202,7 +207,7 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
           sendEventToServer(message)
           lastSentTime.set(currentTime)
         } else {
-          Log.d(TAG, "Skipping log send; last sent ${elapsed}ms ago")
+          Log.d(TAG, "Skipping event send; last sent ${elapsed}ms ago")
         }
       }
     }
