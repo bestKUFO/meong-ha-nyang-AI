@@ -47,12 +47,9 @@ import com.google.mlkit.vision.objects.DetectedObject
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.ObjectDetector
 import com.google.mlkit.vision.objects.custom.CustomObjectDetectorOptions
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.util.Objects
-import java.util.concurrent.atomic.AtomicLong
 import kotlin.collections.List
+import com.google.mlkit.vision.demo.kotlin.business.BoundingBoxTracker
 
 /** Live preview demo app for ML Kit APIs using CameraXSource API. */
 @KeepName
@@ -66,6 +63,7 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
   private var customObjectDetectorOptions: CustomObjectDetectorOptions? = null
   private var targetResolution: Size? = null
   private val eventSender = EventSender()
+  private val boundingBoxTracker = BoundingBoxTracker()
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -208,22 +206,21 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
       val detectedObject = results[0]
       val boundingBox = detectedObject.boundingBox
 
-      // 바운딩 박스 좌표 추출
-      val x1 = boundingBox.left
-      val y1 = boundingBox.top
-      val x2 = boundingBox.right
-      val y2 = boundingBox.top
-      val x3 = boundingBox.right
-      val y3 = boundingBox.bottom
-      val x4 = boundingBox.left
-      val y4 = boundingBox.bottom
-
-      // 로그로 바운딩 박스의 네 꼭짓점 좌표 출력
+      // 트래킹 ID
       Log.i(TAG, "Tracking ID: " + detectedObject.trackingId)
-      Log.i(TAG, "BoundingBox 좌상단 ($x1, $y1), 우상단($x2, $y2), 우하단($x3, $y3), 좌하단($x4, $y4)")
+      // 바운딩박스 좌표
+      val boundingBoxCoordinates = boundingBoxTracker.getBoundingBoxCoordinates(boundingBox)
+      Log.i(TAG, "Bounding Box Coordinates: $boundingBoxCoordinates")
 
       // 서버에 이벤트 데이터 전송
-      eventSender.sendEventToServerWithThrottling("왼쪽 상단부터 시계방향(0,0): ($x1, $y1) -> ($x2, $y2) -> ($x3, $y3) -> ($x4, $y4)")
+      if (boundingBoxTracker.trackBoundingBox(detectedObject)) {
+        // 좌표가 10 이상 변화시 움직임으로 판단
+        Log.i(TAG, "Movement detected! Object moved: $boundingBoxCoordinates")
+        eventSender.sendEventToServerWithThrottling("Object moved: $boundingBoxCoordinates")
+      } else {
+        Log.i(TAG, "Object detected at: $boundingBoxCoordinates")
+        eventSender.sendEventToServerWithThrottling("Object detected at: $boundingBoxCoordinates")
+      }
     }
 
     for (`object` in results) {

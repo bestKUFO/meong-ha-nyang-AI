@@ -29,7 +29,7 @@ class EventSender(private val sendIntervalMillis: Long = 5000L) {
     private fun sendEventToServer(message: String) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // Retrofit 또는 기타 네트워크 라이브러리 사용하여 서버로 전송
+                // 서버로 전송
                 val response = RetrofitClient.logApiService.sendEventLog(EventData(message))
                 if (response.isSuccessful) {
                     Log.d(TAG, "Event data successfully sent to server.")
