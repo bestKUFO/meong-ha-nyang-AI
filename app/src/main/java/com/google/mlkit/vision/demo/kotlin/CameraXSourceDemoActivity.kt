@@ -40,6 +40,7 @@ import com.google.mlkit.vision.camera.DetectionTaskCallback
 import com.google.mlkit.vision.demo.GraphicOverlay
 import com.google.mlkit.vision.demo.InferenceInfoGraphic
 import com.google.mlkit.vision.demo.R
+import com.google.mlkit.vision.demo.kotlin.business.EventSender
 import com.google.mlkit.vision.demo.kotlin.objectdetector.ObjectGraphic
 import com.google.mlkit.vision.demo.preference.PreferenceUtils
 import com.google.mlkit.vision.objects.DetectedObject
@@ -64,8 +65,7 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
   private var cameraXSource: CameraXSource? = null
   private var customObjectDetectorOptions: CustomObjectDetectorOptions? = null
   private var targetResolution: Size? = null
-  private val lastSentTime = AtomicLong(0) // 마지막 전송 시간 기록
-  private val sendIntervalMillis = 5000L // 5초 간격
+  private val eventSender = EventSender()
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -223,7 +223,7 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
       Log.i(TAG, "BoundingBox 좌상단 ($x1, $y1), 우상단($x2, $y2), 우하단($x3, $y3), 좌하단($x4, $y4)")
 
       // 서버에 이벤트 데이터 전송
-      sendEventToServerWithThrottling("왼쪽 상단부터 시계방향(0,0): ($x1, $y1) -> ($x2, $y2) -> ($x3, $y3) -> ($x4, $y4)")
+      eventSender.sendEventToServerWithThrottling("왼쪽 상단부터 시계방향(0,0): ($x1, $y1) -> ($x2, $y2) -> ($x3, $y3) -> ($x4, $y4)")
     }
 
     for (`object` in results) {
@@ -234,38 +234,6 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
     graphicOverlay!!.postInvalidate()
   }
 
-
-  private fun sendEventToServerWithThrottling(message: String) {
-    CoroutineScope(Dispatchers.IO).launch {
-      val currentTime = System.currentTimeMillis()
-      val elapsed = currentTime - lastSentTime.get()
-      if (elapsed >= sendIntervalMillis) {
-        // 5초가 지난 경우에만 전송
-        sendEventToServer(message)
-        lastSentTime.set(currentTime)
-      } else {
-        Log.d(TAG, "Skipping event send; last sent ${elapsed}ms ago")
-      }
-    }
-  }
-
-  // 서버로 로그 전송하는 메서드
-  private fun sendEventToServer(message: String) {
-    // Coroutine 사용하여 비동기 작업
-    CoroutineScope(Dispatchers.IO).launch {
-      try {
-        // 서버에 로그 전송
-        val response = RetrofitClient.logApiService.sendEventLog(EventData(message))
-        if (response.isSuccessful) {
-          Log.d(TAG, "Event data successfully sent to server.")
-        } else {
-          Log.e(TAG, "Failed to send event data: ${response.code()}")
-        }
-      } catch (e: Exception) {
-        Log.e(TAG, "Error sending event data to server", e)
-      }
-    }
-  }
 
   private fun onDetectionTaskFailure(e: Exception) {
     graphicOverlay?.clear()
