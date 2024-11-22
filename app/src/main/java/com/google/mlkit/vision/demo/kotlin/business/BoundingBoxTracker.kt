@@ -9,7 +9,7 @@ class BoundingBoxTracker {
     // 이전 bounding box와 현재 bounding box의 차이를 계산하는 함수
     fun trackBoundingBox(detectedObject: DetectedObject): Boolean {
         val currentBoundingBox = detectedObject.boundingBox
-        val isMovementDetected = hasSignificantMovement(lastBoundingBox, currentBoundingBox)
+        val isMovementDetected = isMovement(lastBoundingBox, currentBoundingBox)
 
         // 이전 bounding box를 현재 값으로 업데이트
         lastBoundingBox = currentBoundingBox
@@ -18,7 +18,7 @@ class BoundingBoxTracker {
     }
 
     // 좌표 변화가 10 이상인지 확인하는 함수
-    private fun hasSignificantMovement(lastBoundingBox: Rect?, currentBoundingBox: Rect): Boolean {
+    private fun isMovement(lastBoundingBox: Rect?, currentBoundingBox: Rect): Boolean {
         if (lastBoundingBox == null) return false // 초기 상태는 이동 없음
 
         // BoundingBoxUtils에서 좌표 변환 메서드 활용
@@ -46,7 +46,7 @@ class BoundingBoxTracker {
 }
 // todo
 // 행동 변화를 boolean값으로 정해서 행동 변화가 있으면 true, 없으면 false로 작동하는로직 작성
-// hasSignificantMovement에서 x 또는 y 좌표 차이가 10 이상인 경우
+// isMovement에서 x 또는 y 좌표 차이가 10 이상인 경우
 // trackBoundingBox에서 움직임 감지가 되면 true. 없다면 false
 // true : yolo 호출
 // false : 디텍팅만

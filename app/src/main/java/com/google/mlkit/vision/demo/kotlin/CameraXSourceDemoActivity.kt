@@ -51,6 +51,10 @@ import java.util.Objects
 import kotlin.collections.List
 import com.google.mlkit.vision.demo.kotlin.business.BoundingBoxTracker
 import com.google.mlkit.vision.demo.kotlin.business.BoundingBoxUtils
+import com.google.mlkit.vision.demo.kotlin.business.YoloObjectDetection
+import android.graphics.Bitmap
+import com.google.mlkit.vision.demo.BitmapUtils
+import androidx.camera.core.ImageProxy
 
 /** Live preview demo app for ML Kit APIs using CameraXSource API. */
 @KeepName
@@ -65,6 +69,8 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
   private var targetResolution: Size? = null
   private val eventSender = EventSender()
   private val boundingBoxTracker = BoundingBoxTracker()
+  private lateinit var yoloObjectDetection: YoloObjectDetection
+
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -85,6 +91,9 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
     if (!allRuntimePermissionsGranted()) {
       getRuntimePermissions()
     }
+    
+    // 초기화
+    yoloObjectDetection = YoloObjectDetection(this)
   }
 
   override fun onCheckedChanged(buttonView: CompoundButton, isChecked: Boolean) {
@@ -210,14 +219,16 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
       Log.i(TAG, "Tracking ID: ${detectedObject.trackingId}")
       BoundingBoxUtils.boundingBoxLog(detectedObject)
 
-      // 서버에 이벤트 데이터 전송
-      if (boundingBoxTracker.trackBoundingBox(detectedObject)) {
-        // 좌표가 10 이상 변화시 움직임으로 판단
-        // 물체 움직임 감지 완료
-        Log.i(TAG, "Object moved: ${BoundingBoxUtils.boundingBoxMessage(detectedObject)}")
-        eventSender.sendEventToServerWithThrottling("Object moved: ${BoundingBoxUtils.boundingBoxMessage(detectedObject)}")
+      // BoundingBoxTracker 호출
+      val isMovementDetected = boundingBoxTracker.trackBoundingBox(detectedObject)
+
+      if (isMovementDetected) {
+        // 현재 프레임의 이미지를 Bitmap으로 변환
+        val bitmap = previewView?.bitmap  // PreviewView에서 현재 프리뷰 이미지를 가져옴
+        if (bitmap != null) {
+          yoloObjectDetection.logResult(bitmap, detectedObject.boundingBox)
+        }
       } else {
-        // 물체 탐지 완료
         eventSender.sendEventToServerWithThrottling(BoundingBoxUtils.boundingBoxMessage(detectedObject))
       }
     }
