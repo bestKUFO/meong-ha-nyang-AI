@@ -10,99 +10,185 @@ import java.nio.ByteOrder
 import java.io.FileInputStream
 import java.io.IOException
 
-//todo -> 바운딩박스만큼 crop하는거 없애기
 class YoloObjectDetection(private val context: Context) {
-
     private lateinit var interpreter: Interpreter
+    private var classLabels: List<String>? = null
 
     init {
         try {
             val model = loadModelFile(context)
             interpreter = Interpreter(model)
+            interpreter.allocateTensors()
+            Log.d("YoloObjectDetection", "Model loaded and tensors allocated successfully.")
         } catch (e: Exception) {
             Log.e("YoloObjectDetection", "Error initializing YOLO model: ${e.message}")
         }
     }
 
-    // YOLO 모델을 실행하고 예측 결과를 반환하는 함수
     fun processFrame(bitmap: Bitmap, boundingBox: Rect): String {
-        if (boundingBox.isEmpty) {
-            return "Bounding box is empty"
+        if (bitmap.width == 0 || bitmap.height == 0) {
+            return "Invalid image size"
         }
         try {
-            // 바운딩 박스를 기준으로 이미지를 자르고 YOLO 모델 실행
-            val croppedBitmap = cropImage(bitmap, boundingBox)
-            val resizedBitmap = Bitmap.createScaledBitmap(croppedBitmap, 416, 416, true)
+            // 이미지 크기 리사이즈 (320x320)
+            val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 320, 320, true)
+
+            // RGB 이미지로 변환
             val inputArray = preprocessImage(resizedBitmap)
 
-            // YOLO 모델 실행
-            val outputMap = Array(1) { FloatArray(255) }
-            interpreter.run(inputArray, outputMap)
+            val inputTensorIndex = 0
+            val inputTensor = interpreter.getInputTensor(inputTensorIndex)
+            val inputShape = inputTensor.shape()
+            val bufferSize = inputShape.reduce { acc, i -> acc * i } * 4 // float 형 데이터 크기
 
-            val detectedClass = outputMap[0][0]
-            val confidence = outputMap[0][1]
+            // 텐서의 크기를 확인하여 ByteBuffer 크기 조정
+            val inputData = ByteBuffer.allocateDirect(bufferSize).apply {
+                order(ByteOrder.nativeOrder())
+            }
 
-            // 예측된 객체 클래스와 신뢰도 반환
-            return "Detected Object: Class $detectedClass, Confidence: ${confidence * 100}%"
+            // 이미지를 ByteBuffer에 복사
+            if (inputArray.remaining() != inputData.remaining()) {
+                throw IllegalArgumentException("Input array size does not match input tensor size.")
+            }
+
+            inputArray.rewind()
+            inputData.put(inputArray)
+
+            // 출력 텐서 준비 (출력 크기 확인 후 설정)
+            val outputShape = interpreter.getOutputTensor(0).shape()
+            Log.d("YoloObjectDetection", "Output Tensor Shape: ${outputShape.joinToString()}")
+
+            val outputSize = outputShape.reduce { acc, i -> acc * i }
+            val outputMap = Array(1) { Array(outputShape[1]) { FloatArray(outputShape[2]) } }  // [1, 6300, 85]
+
+            // 모델 실행
+            interpreter.run(inputData, outputMap)
+
+            // 출력 결과 로그
+            val results = processOutput(outputMap)
+
+            // 클래스 인덱스와 확률을 찾아 가장 높은 확률의 클래스를 찾기
+            val maxIndex = results.indices.maxByOrNull { results[it].second } ?: -1
+            val detectedClassIndex: Int = maxIndex  // Ensure it's an Int
+            val confidence = results.getOrNull(maxIndex)?.second ?: 0f
+
+            // Labels.txt 로드 (클래스 이름 가져오기)
+            val labels = loadClassLabels(context)
+
+            // 결과에서 클래스 이름을 찾기
+            val detectedClassName = if (detectedClassIndex in labels.indices) {
+                labels[detectedClassIndex]
+            } else {
+                "Unknown"
+            }
+
+            // 로그 출력
+            logResult(resizedBitmap, boundingBox, detectedClassIndex, confidence)
+
+            // 결과 출력
+            return if (detectedClassIndex != -1) {
+                "Detected Object: $detectedClassName with Confidence: $confidence"
+            } else {
+                "No valid detection"
+            }
         } catch (e: Exception) {
-            Log.e("YoloObjectDetection", "Error during YOLO model execution: ${e.message}")
-            return "Error during YOLO execution"
+            Log.e("YoloObjectDetection", "Error during YOLO model execution: ${e.message}", e)
+            return "Error during YOLO execution: ${e.message}"
         }
     }
 
-    // YOLO 모델 실행 후 결과를 로그로 출력하는 함수
-    fun logResult(bitmap: Bitmap, boundingBox: Rect) {
-        // YOLO 모델 실행
-        val predictionResults = processFrame(bitmap, boundingBox)
+    private fun preprocessImage(bitmap: Bitmap): ByteBuffer {
+        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 320, 320, true)
+        val width = resizedBitmap.width
+        val height = resizedBitmap.height
 
-        // 로그 출력
-        Log.i("YoloObjectDetection", "YOLO Execution Result: $predictionResults")
-    }
+        if (width <= 0 || height <= 0) {
+            throw IllegalArgumentException("Invalid image dimensions: width=$width, height=$height")
+        }
 
-    // 이미지를 바운딩 박스 크기에 맞게 자르는 함수
-    private fun cropImage(bitmap: Bitmap, boundingBox: Rect): Bitmap {
-        return Bitmap.createBitmap(
-            bitmap,
-            boundingBox.left,
-            boundingBox.top,
-            boundingBox.width(),
-            boundingBox.height()
-        )
-    }
+        val bufferSize = 4 * width * height * 3
+        val inputBuffer = ByteBuffer.allocateDirect(bufferSize).apply {
+            order(ByteOrder.nativeOrder())
+        }
 
-    // YOLO 모델에 맞는 입력 형식으로 이미지를 전처리하는 함수
-    private fun preprocessImage(bitmap: Bitmap): Array<FloatArray> {
-        val inputArray = Array(1) { FloatArray(416 * 416 * 3) }
-        val pixels = IntArray(416 * 416)
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val pixel = resizedBitmap.getPixel(x, y)
+                val r = (pixel shr 16) and 0xFF
+                val g = (pixel shr 8) and 0xFF
+                val b = pixel and 0xFF
 
-        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-
-        for (i in 0 until 416) {
-            for (j in 0 until 416) {
-                val pixel = pixels[i * 416 + j]
-                val r = ((pixel shr 16) and 0xFF) / 255.0f
-                val g = ((pixel shr 8) and 0xFF) / 255.0f
-                val b = (pixel and 0xFF) / 255.0f
-
-                val index = (i * 416 + j) * 3
-                inputArray[0][index] = r
-                inputArray[0][index + 1] = g
-                inputArray[0][index + 2] = b
+                inputBuffer.putFloat(r / 255.0f)
+                inputBuffer.putFloat(g / 255.0f)
+                inputBuffer.putFloat(b / 255.0f)
             }
         }
 
-        return inputArray
+        inputBuffer.rewind()
+        return inputBuffer
     }
 
-    // 모델 파일을 ByteBuffer로 로드하는 함수
+    private fun processOutput(outputMap: Array<Array<FloatArray>>): List<Pair<Float, Float>> {
+        val results = mutableListOf<Pair<Float, Float>>()
+        for (i in outputMap[0].indices) {
+            val detectedClass = outputMap[0][i][4]
+            val confidence = outputMap[0][i][5]
+            results.add(Pair(detectedClass, confidence))
+        }
+        // 중복 로그 출력 제거
+        return results
+    }
+
+    private fun logResult(
+        bitmap: Bitmap,
+        boundingBox: Rect,
+        detectedClass: Int,
+        confidence: Float
+    ) {
+        val confidencePercentage = confidence * 100
+        Log.i(
+            "YoloObjectDetection",
+            "Detection Result: Class $detectedClass, Confidence: %.6f%%".format(confidencePercentage)
+        )
+        Log.i(
+            "YoloObjectDetection",
+            "Bounding Box: Left ${boundingBox.left}, Top ${boundingBox.top}, Right ${boundingBox.right}, Bottom ${boundingBox.bottom}"
+        )
+    }
+
+    private fun loadClassLabels(context: Context): List<String> {
+        // 이미 로드된 라벨이 있으면 반환, 없으면 새로 로드
+        if (classLabels != null) return classLabels!!
+
+        val labels = mutableListOf<String>()
+        try {
+            // labels.txt 경로
+            context.assets.open("custom_models/labels.txt").bufferedReader().useLines { lines ->
+                lines.forEach { labels.add(it) }
+            }
+            classLabels = labels
+        } catch (e: IOException) {
+            Log.e("YoloObjectDetection", "Error loading labels: ${e.message}")
+            e.printStackTrace()  // 자세한 스택 트레이스 출력
+        }
+        return classLabels ?: emptyList()
+    }
+
     private fun loadModelFile(context: Context): ByteBuffer {
-        val assetFileDescriptor = context.assets.openFd("custom_models/yolov5s_f16.tflite")
-        val inputStream = FileInputStream(assetFileDescriptor.fileDescriptor)
-        val fileChannel = inputStream.channel
-        val startOffset = assetFileDescriptor.startOffset
-        val declaredLength = assetFileDescriptor.declaredLength
-        return fileChannel.map(java.nio.channels.FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
-            .order(ByteOrder.nativeOrder())
+        try {
+            val assetFileDescriptor = context.assets.openFd("custom_models/yolov5s_f16.tflite")
+            val inputStream = FileInputStream(assetFileDescriptor.fileDescriptor)
+            val fileChannel = inputStream.channel
+            val startOffset = assetFileDescriptor.startOffset
+            val declaredLength = assetFileDescriptor.declaredLength
+            return fileChannel.map(
+                java.nio.channels.FileChannel.MapMode.READ_ONLY,
+                startOffset,
+                declaredLength
+            ).order(ByteOrder.nativeOrder())
+        } catch (e: IOException) {
+            Log.e("YoloObjectDetection", "Error loading model file: ${e.message}")
+            throw e  // 오류가 발생하면 예외를 던져서 문제를 추적할 수 있게 함
+        }
     }
 }
-

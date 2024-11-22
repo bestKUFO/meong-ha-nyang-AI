@@ -226,10 +226,12 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
         // 현재 프레임의 이미지를 Bitmap으로 변환
         val bitmap = previewView?.bitmap  // PreviewView에서 현재 프리뷰 이미지를 가져옴
         if (bitmap != null) {
-          yoloObjectDetection.logResult(bitmap, detectedObject.boundingBox)
+          // YOLO 객체 탐지 실행
+          val result = yoloObjectDetection.processFrame(bitmap, detectedObject.boundingBox)
+          Log.i(TAG, result)  // YOLO 결과를 로그로 출력
+        } else {
+          Log.e(TAG, "Bitmap is null!")
         }
-      } else {
-        eventSender.sendEventToServerWithThrottling(BoundingBoxUtils.boundingBoxMessage(detectedObject))
       }
     }
 
