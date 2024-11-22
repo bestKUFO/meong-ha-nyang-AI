@@ -40,17 +40,17 @@ import com.google.mlkit.vision.camera.DetectionTaskCallback
 import com.google.mlkit.vision.demo.GraphicOverlay
 import com.google.mlkit.vision.demo.InferenceInfoGraphic
 import com.google.mlkit.vision.demo.R
+import com.google.mlkit.vision.demo.kotlin.business.EventSender
 import com.google.mlkit.vision.demo.kotlin.objectdetector.ObjectGraphic
 import com.google.mlkit.vision.demo.preference.PreferenceUtils
 import com.google.mlkit.vision.objects.DetectedObject
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.ObjectDetector
 import com.google.mlkit.vision.objects.custom.CustomObjectDetectorOptions
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.util.Objects
 import kotlin.collections.List
+import com.google.mlkit.vision.demo.kotlin.business.BoundingBoxTracker
+import com.google.mlkit.vision.demo.kotlin.business.BoundingBoxUtils
 
 /** Live preview demo app for ML Kit APIs using CameraXSource API. */
 @KeepName
@@ -63,6 +63,8 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
   private var cameraXSource: CameraXSource? = null
   private var customObjectDetectorOptions: CustomObjectDetectorOptions? = null
   private var targetResolution: Size? = null
+  private val eventSender = EventSender()
+  private val boundingBoxTracker = BoundingBoxTracker()
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -96,6 +98,9 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
 
   public override fun onResume() {
     super.onResume()
+    if (isFinishing || isDestroyed) {
+      return
+    }
     if (cameraXSource != null &&
         PreferenceUtils.getCustomObjectDetectorOptionsForLivePreview(this, localModel)
           .equals(customObjectDetectorOptions) &&
@@ -133,6 +138,23 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
         getApplicationContext(),
         localModel
       )
+
+    if (customObjectDetectorOptions == null) {
+      Log.e(TAG, "CustomObjectDetectorOptions is null. Cannot proceed.")
+      return
+    }
+
+    // 카메라 타겟 해상도 설정
+    targetResolution = PreferenceUtils.getCameraXTargetResolution(applicationContext, lensFacing)
+
+    if (targetResolution == null) {
+      Log.e(TAG, "Target resolution is null. Setting default resolution.")
+      // 기본 해상도 설정
+      targetResolution = Size(1280, 720)
+    }
+
+
+    // 객체 탐지 클라이언트 설정
     val objectDetector: ObjectDetector = ObjectDetection.getClient(customObjectDetectorOptions!!)
     val detectionTaskCallback: DetectionTaskCallback<List<DetectedObject>> =
       DetectionTaskCallback<List<DetectedObject>> { detectionTask ->
@@ -140,24 +162,33 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
           .addOnSuccessListener { results -> onDetectionTaskSuccess(results) }
           .addOnFailureListener { e -> onDetectionTaskFailure(e) }
       }
+    // 카메라 설정 및 CameraXSource 시작
     val builder: CameraSourceConfig.Builder =
-      CameraSourceConfig.Builder(getApplicationContext(), objectDetector, detectionTaskCallback)
+      CameraSourceConfig.Builder(applicationContext, objectDetector, detectionTaskCallback)
         .setFacing(lensFacing)
-        .setRequestedPreviewSize(1280, 720) // 해상도를 1280x720으로 고정
+        .setRequestedPreviewSize(targetResolution!!.width, targetResolution!!.height)
+
     cameraXSource = CameraXSource(builder.build(), previewView!!)
+
+    // 카메라 시작
+    if (isFinishing || isDestroyed) {
+      Log.d(TAG, "액티비티 finishing or destroyed, 카메라 시작안됨")
+      return
+    }
+
     needUpdateGraphicOverlayImageSourceInfo = true
     cameraXSource!!.start()
   }
 
   private fun onDetectionTaskSuccess(results: List<DetectedObject>) {
     graphicOverlay!!.clear()
+
     if (needUpdateGraphicOverlayImageSourceInfo) {
       val size: Size = cameraXSource!!.getPreviewSize()!!
       if (size != null) {
         Log.d(TAG, "preview width: " + size.width)
         Log.d(TAG, "preview height: " + size.height)
-        val isImageFlipped =
-          cameraXSource!!.getCameraFacing() == CameraSourceConfig.CAMERA_FACING_FRONT
+        val isImageFlipped = cameraXSource!!.getCameraFacing() == CameraSourceConfig.CAMERA_FACING_FRONT
         if (isPortraitMode) {
           // Swap width and height sizes when in portrait, since it will be rotated by
           // 90 degrees. The camera preview and the image being processed have the same size.
@@ -170,70 +201,39 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
         Log.d(TAG, "previewsize is null")
       }
     }
-    // Log messages for object detection
-    Log.i(TAG, "local msg : detected my bbobby")
 
-    // Send log to server
-    sendLogToServer("detected my bbobby")
+    if (results.isNotEmpty()) {
+      // 객체 탐지시 출력
+      val detectedObject = results[0]
 
-    // Process and log all detected objects and their labels
+      // 로그로 바운딩 박스의 네 꼭짓점 좌표 출력
+      Log.i(TAG, "Tracking ID: ${detectedObject.trackingId}")
+      BoundingBoxUtils.boundingBoxLog(detectedObject)
 
-    // Depending on the index, you can adjust the log level to Debug for detailed information (Log.d) or Info for important events (Log.i)
-    Log.v(TAG, "Number of objects detected: ${results.size}")
-    for ((index, detectedObject) in results.withIndex()) {
-      Log.d(TAG, "Object $index:")
-
-      if (detectedObject.labels.isEmpty()) {
-        Log.d(TAG, "No labels found for this object")
+      // 서버에 이벤트 데이터 전송
+      if (boundingBoxTracker.trackBoundingBox(detectedObject)) {
+        // 좌표가 10 이상 변화시 움직임으로 판단
+        // 물체 움직임 감지 완료
+        Log.i(TAG, "Object moved: ${BoundingBoxUtils.boundingBoxMessage(detectedObject)}")
+        eventSender.sendEventToServerWithThrottling("Object moved: ${BoundingBoxUtils.boundingBoxMessage(detectedObject)}")
       } else {
-        for (label in detectedObject.labels) {
-          Log.d(TAG, "- Label: ${label.text} (confidence: ${label.confidence * 100}%)")
-        }
+        // 물체 탐지 완료
+        eventSender.sendEventToServerWithThrottling(BoundingBoxUtils.boundingBoxMessage(detectedObject))
       }
+    }
 
-      // Check if the detected object matches "dog" or "cat"
-      var isDesiredObject = false
-      for (label in detectedObject.labels) {
-        if (label.text == "dog" || label.text == "cat") {
-          isDesiredObject = true
-          // Send log if he detected object matches "dog" or "cat"
-          Log.i(TAG, "Detected a desired object: ${label.text}")
-          sendLogToServer("Detected a ${label.text}")
-          break
-        }
-      }
-
-      // Add object to overlay only if it matches desired classes
-      if (isDesiredObject) {
-        graphicOverlay!!.add(ObjectGraphic(graphicOverlay!!, detectedObject))
-      }
+    for (`object` in results) {
+      graphicOverlay!!.add(ObjectGraphic(graphicOverlay!!, `object`))
     }
 
     graphicOverlay!!.add(InferenceInfoGraphic(graphicOverlay!!))
     graphicOverlay!!.postInvalidate()
   }
 
-  // 서버로 로그 전송하는 메서드
-  private fun sendLogToServer(message: String) {
-    // Coroutine 사용하여 비동기 작업
-    CoroutineScope(Dispatchers.IO).launch {
-      try {
-        // 서버에 로그 전송
-        val response = RetrofitClient.logApiService.sendEventLog(EventData(message))
-        if (response.isSuccessful) {
-          Log.d(TAG, "Event data successfully sent to server.")
-        } else {
-          Log.e(TAG, "Failed to send event data: ${response.code()}")
-        }
-      } catch (e: Exception) {
-        Log.e(TAG, "Error sending event data to server", e)
-      }
-    }
-  }
 
   private fun onDetectionTaskFailure(e: Exception) {
-    graphicOverlay!!.clear()
-    graphicOverlay!!.postInvalidate()
+    graphicOverlay?.clear()
+    graphicOverlay?.postInvalidate()
     val error = "Failed to process. Error: " + e.localizedMessage
     Toast.makeText(
         graphicOverlay!!.getContext(),
