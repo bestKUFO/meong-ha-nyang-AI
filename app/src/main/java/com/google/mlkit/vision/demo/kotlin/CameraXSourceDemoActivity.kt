@@ -50,6 +50,7 @@ import com.google.mlkit.vision.objects.custom.CustomObjectDetectorOptions
 import java.util.Objects
 import kotlin.collections.List
 import com.google.mlkit.vision.demo.kotlin.business.BoundingBoxTracker
+import com.google.mlkit.vision.demo.kotlin.business.BoundingBoxUtils
 
 /** Live preview demo app for ML Kit APIs using CameraXSource API. */
 @KeepName
@@ -204,22 +205,20 @@ class CameraXSourceDemoActivity : AppCompatActivity(), CompoundButton.OnCheckedC
     if (results.isNotEmpty()) {
       // 객체 탐지시 출력
       val detectedObject = results[0]
-      val boundingBox = detectedObject.boundingBox
 
-      // 트래킹 ID
-      Log.i(TAG, "Tracking ID: " + detectedObject.trackingId)
-      // 바운딩박스 좌표
-      val boundingBoxCoordinates = boundingBoxTracker.getBoundingBoxCoordinates(boundingBox)
-      Log.i(TAG, "Bounding Box Coordinates: $boundingBoxCoordinates")
+      // 로그로 바운딩 박스의 네 꼭짓점 좌표 출력
+      Log.i(TAG, "Tracking ID: ${detectedObject.trackingId}")
+      BoundingBoxUtils.boundingBoxLog(detectedObject)
 
       // 서버에 이벤트 데이터 전송
       if (boundingBoxTracker.trackBoundingBox(detectedObject)) {
         // 좌표가 10 이상 변화시 움직임으로 판단
-        Log.i(TAG, "Movement detected! Object moved: $boundingBoxCoordinates")
-        eventSender.sendEventToServerWithThrottling("Object moved: $boundingBoxCoordinates")
+        // 물체 움직임 감지 완료
+        Log.i(TAG, "Object moved: ${BoundingBoxUtils.boundingBoxMessage(detectedObject)}")
+        eventSender.sendEventToServerWithThrottling("Object moved: ${BoundingBoxUtils.boundingBoxMessage(detectedObject)}")
       } else {
-        Log.i(TAG, "Object detected at: $boundingBoxCoordinates")
-        eventSender.sendEventToServerWithThrottling("Object detected at: $boundingBoxCoordinates")
+        // 물체 탐지 완료
+        eventSender.sendEventToServerWithThrottling(BoundingBoxUtils.boundingBoxMessage(detectedObject))
       }
     }
 
