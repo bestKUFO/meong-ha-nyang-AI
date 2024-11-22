@@ -42,9 +42,11 @@ class BoundingBoxTracker {
 
         // x 또는 y 좌표 차이가 10 이상인 경우 행동 변화로 판단
         return xDiff >= 10 || yDiff >= 10
-        // todo
-        // 행동 변화를 boolean값으로 정해서 행동 변화가 있으면 true, 없으면 false로 작동하는로직 작성
-        // true : yolo 호출
-        // false : 디텍팅만
     }
 }
+// todo
+// 행동 변화를 boolean값으로 정해서 행동 변화가 있으면 true, 없으면 false로 작동하는로직 작성
+// hasSignificantMovement에서 x 또는 y 좌표 차이가 10 이상인 경우
+// trackBoundingBox에서 움직임 감지가 되면 true. 없다면 false
+// true : yolo 호출
+// false : 디텍팅만

@@ -46,7 +46,7 @@ object BoundingBoxUtils {
         return "왼쪽 상단부터 시계방향(0,0): (${coordinates.x1}, ${coordinates.y1}) -> (${coordinates.x2}, ${coordinates.y2}) -> (${coordinates.x3}, ${coordinates.y3}) -> (${coordinates.x4}, ${coordinates.y4})"
     }
 
-    // 바운딩 좌표 Rect 지정 함수
+    // 좌표 변환 메서드
     fun boundingBoxCoordinatesFromRect(rect: Rect): BoundingBoxCoordinates {
         return BoundingBoxCoordinates(
             x1 = rect.left, y1 = rect.top,
